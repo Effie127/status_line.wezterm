@@ -1,17 +1,70 @@
 ---@type Wezterm
 local wezterm = require "wezterm"
 
+--- Checks if the user is on windows
+local is_windows = string.match(wezterm.target_triple, 'windows') ~= nil
+local separator = is_windows and '\\' or '/'
+
+local plugin_dir = wezterm.plugin.list()[1].plugin_dir:gsub(separator .. '[^' .. separator .. ']*$', '')
+
+--- Checks if the plugin directory exists
+local function directory_exists(path)
+  local success, result = pcall(wezterm.read_dir, plugin_dir .. path)
+  return success and result
+end
+
+--- Returns the name of the package, used when requiring modules
+local function get_require_path()
+  -- HTTPS version
+  local https_path = 'httpssCssZssZsgithubsDscomsZsEffie127sZsstatus_linesDsweztermsDsgit'
+  local https_path_slash = 'httpssCssZssZsgithubsDscomsZsEffie127sZsstatus_linesDsweztermsDsgitsZs'
+
+  -- Check all possible paths
+  if directory_exists(https_path_slash) then
+    return https_path_slash
+  end
+  if directory_exists(https_path) then
+    return https_path
+  end
+  -- Default fallback
+  return https_path
+end
+
+package.path = package.path
+    .. ';'
+    .. plugin_dir
+    .. separator
+    .. get_require_path()
+    .. separator
+    .. "plugin"
+    .. separator
+    .. '?.lua'
+
 ---@type StatusConfig
 local config = {}
 
+-- 当前的模式
+local cur_mode = "DEFAULT"
+
 ---@type StatusModules
-local modules = require "plugin.status_line.modules"
+local modules = {
+  ---@param window Window
+  ---@return string
+  show_leader = function(window, _)
+    local leader = ""
+    if window:leader_is_active() then
+      leader = wezterm.nerdfonts.md_keyboard_space .. ' LEADER  '
+    end
+    return leader
+  end,
+
+  show_mode = function(_, _)
+    return cur_mode
+  end
+}
 
 ---@class StatusLine
 local M = {}
-
--- 当前的模式
-local cur_mode = "DEFAULT"
 
 -- 获取当前模式对应颜色
 local function get_primary_color()
@@ -36,7 +89,7 @@ local function format_elements(window, pane)
   local last_color
 
   for _, func in ipairs(config.cell) do
-    local text = modules[func](window,pane)
+    local text = modules[func](window, pane)
     if text and #text > 0 then
       local fg_color = config.color.text_color
       local bg_color = primary_color
