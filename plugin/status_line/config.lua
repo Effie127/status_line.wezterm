@@ -1,5 +1,5 @@
 ---@class StatusConfig
----@field cell table<function>?
+---@field cell table<string>?
 ---@field color StatusConfig.Color?
 ---@field seperator string?
 local M = {
