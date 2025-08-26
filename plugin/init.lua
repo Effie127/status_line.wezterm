@@ -77,60 +77,41 @@ local function get_primary_color()
   end
 end
 
--- 将各个模块的输出，格式化后打印在状态栏
 local function format_elements(window, pane)
-  ---@type table
-  local res = {}
-
-  local pos = 1
+  local elements = {}
   local primary_color = get_primary_color()
 
-  ---@type string
-  local last_color
-
-  for _, func in ipairs(config.cell) do
-    local text = modules[func](window, pane)
+  for i, func_name in ipairs(config.cell) do
+    local text = modules[func_name](window, pane)
     if text and #text > 0 then
-      local fg_color = config.color.text_color
-      local bg_color = primary_color
+      -- 确定颜色：奇数位置用主色背景，偶数位置用文字色背景
+      local is_odd = i % 2 == 1
+      local bg_color = is_odd and primary_color or config.color.text_color
+      local fg_color = is_odd and config.color.text_color or primary_color
 
-      if pos & 1 == 1 then
-        bg_color = config.color.text_color
-        fg_color = primary_color
+      -- 添加分隔符（如果不是第一个元素）
+      if #elements > 0 then
+        table.insert(elements, { Background = { Color = fg_color } })
+        table.insert(elements, { Foreground = { Color = bg_color } })
+        table.insert(elements, { Text = config.seperator })
       end
 
-      if #res ~= 0 then
-        local interval = {
-          { Background = { Color = fg_color } },
-          { Foreground = { Color = bg_color } },
-          { Text = config.seperator },
-        }
-        table.move(res, 1, #res, #interval + 1)
-        table.move(interval, 1, #interval, 1, res)
-      end
-
-      local info = {
-        { Background = { Color = fg_color } },
-        { Foreground = { Color = bg_color } },
-        { Text = " " .. text .. " " },
-      }
-
-      table.move(res, 1, #res, #info + 1)
-      table.move(info, 1, #info, 1, res)
-      last_color = fg_color
-      pos = pos + 1
+      -- 添加文本元素
+      table.insert(elements, { Background = { Color = bg_color } })
+      table.insert(elements, { Foreground = { Color = fg_color } })
+      table.insert(elements, { Text = " " .. text .. " " })
     end
   end
-  if #res ~= 0 then
-    local edge = {
-      { Background = { Color = config.color.back_color } },
-      { Foreground = { Color = last_color } },
-      { Text = config.seperator },
-    }
-    table.move(res, 1, #res, #edge + 1)
-    table.move(edge, 1, #edge, 1, res)
+
+  -- 添加右侧边缘分隔符（如果有元素）
+  if #elements > 0 then
+    local last_bg_color = (#config.cell % 2 == 1) and primary_color or config.color.text_color
+    table.insert(elements, { Background = { Color = config.color.back_color } })
+    table.insert(elements, { Foreground = { Color = last_bg_color } })
+    table.insert(elements, { Text = config.seperator })
   end
-  return wezterm.format(res)
+
+  return wezterm.format(elements)
 end
 
 ---自定义初始化插件
